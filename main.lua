@@ -4,27 +4,34 @@ TempIndex = 1
 DeltaCounter = 0.0
 Duration = 0.2
 
+YourDeck = {}
+EnemyDeck = {}
+
+CurrentRound = 1
+
+-- 1: Face down
+-- 2: Revealed
+Phase = 1
+
 function love.load()
   love.graphics.setDefaultFilter("nearest", "nearest") -- Do clear pixel art
   Sheets = require("lib.Sheets")
+  Deck = require("lib.Deck")
   CardSprites = Sheets.make("art/cards.png", 48, 64)
   Cards = require("game_data.Cards")
 
-  -- next:
-  -- the backs are 61-69 (nice), so
-  -- 1. "shuffle" Cards into two player "decks"
-  -- 2. for each round, show deck (ie the back frame), then when the player hits SPACE, show the "top"
-  --    card next to the deck frame (ie, show the top card)
-  -- 3. display status
-  -- 4. mutate state
-  -- 5. check for victory conditions
-  -- for the two players
+  -- now shuffle the deck using our custom deck library
+  YourDeck = Deck.make()
+  Deck.shuffle(YourDeck, 1)
+
+  -- do the same for the enemy
+  EnemyDeck = Deck.make()
+  Deck.shuffle(EnemyDeck, 2)
 end
 
 function love.update(dt)
-
   -- Temporarily loop through and show all of the cards in the deck.
-  
+
   -- DeltaCounter is used to convert dt, aka delta, aka time passed per frame, e.g. 16ms for
   -- 60FPS (1000 / 60).
   --
@@ -38,7 +45,6 @@ function love.update(dt)
 
   -- This pattern basically just says "do something every {Duration}" in this case every 0.2s
   if DeltaCounter >= Duration then
-
     -- Reset the counter
     DeltaCounter = 0
 
@@ -52,12 +58,49 @@ function love.update(dt)
   end
 end
 
+function love.keypressed(key)
+  if key == "space" then
+    if Phase == 1 then
+      Phase = 2
+    else
+      Phase = 1
+      CurrentRound = CurrentRound + 1
+    end
+  end
+end
+
 function love.draw()
+  local screenWidth = love.graphics.getWidth()
+  local screenHeight = love.graphics.getHeight()
+  local scale = 3
+  local cardWidth = 48 * scale -- we know this from the sprites, then multiply by card scale
+  local cardHeight = 64 * scale
+
   love.graphics.print("Hello world", 400, 300)
 
   -- Get the current card
   local frame = Cards[TempIndex].frame
 
-  -- Draw the current quad
-  love.graphics.draw(CardSprites.image, CardSprites.quads[frame], 0, 0, 0, 4)
+  local topFrame = Phase == 1 and 61 or Cards[YourDeck[CurrentRound]].frame
+  local bottomFrame = Phase == 1 and 61 or Cards[EnemyDeck[CurrentRound]].frame
+
+  -- Top card (centered horizontally, 50px from top)
+  love.graphics.draw(
+    CardSprites.image,
+    CardSprites.quads[topFrame],
+    (screenWidth - cardWidth) / 2, -- center horizontally
+    50,                            -- 50px from top
+    0,                             -- rotation
+    scale
+  )
+
+  -- Bottom card (centered horizontally, 50px from bottom)
+  love.graphics.draw(
+    CardSprites.image,
+    CardSprites.quads[bottomFrame],
+    (screenWidth - cardWidth) / 2,
+    screenHeight - (cardHeight + 50), -- 50px from bottom
+    0,
+    scale
+  )
 end
