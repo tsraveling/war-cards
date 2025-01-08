@@ -1,17 +1,79 @@
 CardSprites = {}
 Cards = {}
-TempIndex = 1
-DeltaCounter = 0.0
 Duration = 0.2
 
 YourDeck = {}
 EnemyDeck = {}
 
-CurrentRound = 1
+CurrentRound = 0
+Status = "" -- This will be displayed in the center
+Score = 0   -- negative if your enemy is winning, positive if you are winning
+-- you lose if the score is greater than the remaining rounds
 
 -- 1: Face down
 -- 2: Revealed
 Phase = 1
+
+-- This moves to the next round
+function NextRound()
+  Phase = 1
+  CurrentRound = CurrentRound + 1
+  Status = "Spacebar to reveal!"
+end
+
+-- Increment score in my favor
+function WinMe()
+  Score = Score + 1
+end
+
+-- Increment score in enemy favor
+function WinEnemy()
+  Score = Score - 1
+end
+
+-- Return true if I win, false if enemy does. This method
+-- only gets called if face value matches
+-- Note: It would be much easier to just do an index comparison on an authoritative value array,
+-- but that's a little trickier in Lua so I'm just being explicit here instead.
+function ContestSuit(mySuit, enemySuit)
+  if mySuit == "spades" then        -- If I have spades, I win, bc spades are the best
+    return true
+  elseif enemySuit == "spades" then -- If enemy has spades, they win tho
+    return false
+  elseif mySuit == "hearts" then    -- hearts is second highest
+    return true
+  elseif enemySuit == "hearts" then
+    return false
+  elseif mySuit == "clubs" then -- clubs is third highest
+    return true
+  else
+    return false -- if you don't have spades, hearts, or clubs, you have diamonds, and YOU LOSE
+  end
+end
+
+-- This does the actual scoring logic
+function ShowCard()
+  Phase = 2
+  local myCard = Cards[YourDeck[CurrentRound]]
+  local enemyCard = Cards[EnemyDeck[CurrentRound]]
+
+  if myCard.value > enemyCard.value then
+    WinMe()
+    Status = "You win on face value!"
+  elseif myCard.value < enemyCard.value then
+    WinEnemy()
+    Status = "Enemy wins on face value :("
+  else
+    local suitContest = ContestSuit(myCard.suit, enemyCard.suit)
+    if suitContest then
+      WinMe()
+      Status = "You win! (" .. myCard.suit .. " beats " .. enemyCard.suit .. ")"
+    else
+      WinEnemy()
+      Status = "You lose :( (" .. enemyCard.suit .. " beats " .. myCard.suit .. ")"
+    end
+  end
+end
 
 function love.load()
   love.graphics.setDefaultFilter("nearest", "nearest") -- Do clear pixel art
@@ -27,44 +89,21 @@ function love.load()
   -- do the same for the enemy
   EnemyDeck = Deck.make()
   Deck.shuffle(EnemyDeck, 2)
+
+  -- Kick us off
+  NextRound()
 end
 
 function love.update(dt)
-  -- Temporarily loop through and show all of the cards in the deck.
-
-  -- DeltaCounter is used to convert dt, aka delta, aka time passed per frame, e.g. 16ms for
-  -- 60FPS (1000 / 60).
-  --
-  -- Delta is a key game programming concept, and is a part of every game engine. It gives you a
-  -- surefire way to convert processor cycles (ie, every time love.update is called) into real time,
-  -- to ensure that things happen smoothly regardless of how fast a player's processor is.
-  --
-  -- In older DOS games, they often used cycles directly, which is why those games are unplayable
-  -- today without artificially throttling the emulator's processor cycle.
-  DeltaCounter = DeltaCounter + dt
-
-  -- This pattern basically just says "do something every {Duration}" in this case every 0.2s
-  if DeltaCounter >= Duration then
-    -- Reset the counter
-    DeltaCounter = 0
-
-    -- This is the index of the card to display
-    TempIndex = TempIndex + 1
-
-    -- In Lua, #{array} counts it, so this just loops through the 52 cards endlessly
-    if TempIndex > #Cards then
-      TempIndex = 1
-    end
-  end
+  -- This game doesn't really have any real-time elements, so we are gonna leave this blank.
 end
 
 function love.keypressed(key)
   if key == "space" then
     if Phase == 1 then
-      Phase = 2
+      ShowCard()
     else
-      Phase = 1
-      CurrentRound = CurrentRound + 1
+      NextRound()
     end
   end
 end
@@ -76,13 +115,24 @@ function love.draw()
   local cardWidth = 48 * scale -- we know this from the sprites, then multiply by card scale
   local cardHeight = 64 * scale
 
-  love.graphics.print("Hello world", 400, 300)
+  local statusWidth = 300
+
+  -- Print the current round
+  local scoreScale = 1.2
+  love.graphics.print("Round " .. tostring(CurrentRound) .. " / 52. Remaining: " .. tostring(52 - CurrentRound), 20, 20,
+    0, scoreScale, scoreScale)
+  love.graphics.print("Score: " .. tostring(Score), 20, 40, 0, scoreScale, scoreScale)
+
+  -- The last three arguments here are rotation and scale. I'm doubling the scale of the label, which means I
+  -- need to double the "base" width  of the status label (ie, 300, above). Otherwise I would have subtracted only
+  -- half of the statusWidth (statusWidth / 2) in order to center the element. This scale approach is kinda janky,
+  -- so in a future game I would use Love's font system to make accurately-scaled fonts: https://www.love2d.org/wiki/Font
+  love.graphics.printf(Status, (screenWidth / 2) - (statusWidth), screenHeight / 2, statusWidth, "center", 0,
+    2, 2)
 
   -- Get the current card
-  local frame = Cards[TempIndex].frame
-
-  local topFrame = Phase == 1 and 61 or Cards[YourDeck[CurrentRound]].frame
-  local bottomFrame = Phase == 1 and 61 or Cards[EnemyDeck[CurrentRound]].frame
+  local topFrame = Phase == 1 and 61 or Cards[EnemyDeck[CurrentRound]].frame
+  local bottomFrame = Phase == 1 and 61 or Cards[YourDeck[CurrentRound]].frame
 
   -- Top card (centered horizontally, 50px from top)
   love.graphics.draw(
