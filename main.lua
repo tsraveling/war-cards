@@ -12,10 +12,32 @@ Score = 0   -- negative if your enemy is winning, positive if you are winning
 
 -- 1: Face down
 -- 2: Revealed
+-- 3: Game Over
 Phase = 1
+
+-- Check to see if anybody won
+function CheckForWin()
+  if Score > 52 - CurrentRound then -- If you are up by 5, and there are only 4 cards left in each hand, you will win for sure.
+    Status = "You won -- score higher than cards left! (Space to restart)"
+    Phase = 3
+  elseif -Score > 52 - CurrentRound then -- if we flip the sign on score and that is more than remaining cards, that means we lost
+    Status = "You LOSE! Score lower than cards left. (Space to restart)"
+    Phase = 3
+  elseif CurrentRound >= 52 and Score == 0 then -- if the score is even and we are out of cards, it's a draw
+    Status = "It's a draw. Space to restart."
+    Phase = 3
+  end
+end
 
 -- This moves to the next round
 function NextRound()
+  -- Check to see if anybody won
+  CheckForWin()
+  if Phase == 3 then -- If they did, stop the roll
+    return
+  end
+
+  -- Otherwise proceed as normal
   Phase = 1
   CurrentRound = CurrentRound + 1
   Status = "Spacebar to reveal!"
@@ -75,14 +97,8 @@ function ShowCard()
   end
 end
 
-function love.load()
-  love.graphics.setDefaultFilter("nearest", "nearest") -- Do clear pixel art
-  Sheets = require("lib.Sheets")
-  Deck = require("lib.Deck")
-  CardSprites = Sheets.make("art/cards.png", 48, 64)
-  Cards = require("game_data.Cards")
-
-  -- now shuffle the deck using our custom deck library
+function RestartGame()
+  -- shuffle the deck using our custom deck library
   YourDeck = Deck.make()
   Deck.shuffle(YourDeck, 1)
 
@@ -90,8 +106,23 @@ function love.load()
   EnemyDeck = Deck.make()
   Deck.shuffle(EnemyDeck, 2)
 
+  CurrentRound = 0
+  Status = ""
+  Score = 0
+  Phase = 1
+
   -- Kick us off
   NextRound()
+end
+
+function love.load()
+  love.graphics.setDefaultFilter("nearest", "nearest") -- Do clear pixel art
+  Sheets = require("lib.Sheets")
+  Deck = require("lib.Deck")
+  CardSprites = Sheets.make("art/cards.png", 48, 64)
+  Cards = require("game_data.Cards")
+
+  RestartGame()
 end
 
 function love.update(dt)
@@ -102,8 +133,10 @@ function love.keypressed(key)
   if key == "space" then
     if Phase == 1 then
       ShowCard()
-    else
+    elseif Phase == 2 then
       NextRound()
+    else
+      RestartGame()
     end
   end
 end
