@@ -2,6 +2,8 @@
 
 A learning game project in Love2D with Lua. You can install Love with Homebrew:
 
+MAKING A CHANGE!
+
 ```
 brew install --cask love
 ```
